@@ -3,7 +3,7 @@ Installation
 
 cd ComfyUI/custom_nodes
 
-git clone https://github.com/javonLim/ComfyUI-OLO_plugins.git
+git clone https://github.com/javonLim/ComfyUI_OLO_plugins.git
 
 OLO_ModelShare：模型共享功能
 

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ComfyUI节点DOM结构分析</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .node-structure {
+            margin: 20px 0;
+        }
+        .node-structure h2 {
+            color: #555;
+            margin-bottom: 10px;
+        }
+        .code {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .highlight {
+            background-color: #ffffcc;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .instructions {
+            background-color: #e8f4f8;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .instructions h3 {
+            color: #006699;
+            margin-bottom: 10px;
+        }
+        .step {
+            margin: 10px 0;
+            padding-left: 20px;
+            border-left: 3px solid #006699;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ComfyUI节点DOM结构分析</h1>
+        
+        <div class="instructions">
+            <h3>使用说明</h3>
+            <div class="step">1. 打开ComfyUI，添加一个OLO_Code节点到画布</div>
+            <div class="step">2. 按F12打开开发者工具</div>
+            <div class="step">3. 找到OLO_Code节点的DOM元素（使用选择器：`#node-{node_id}`）</div>
+            <div class="step">4. 右键点击节点元素，选择"复制" -> "复制元素"</div>
+            <div class="step">5. 将复制的HTML粘贴到下方的文本框中</div>
+            <div class="step">6. 点击"分析DOM结构"按钮</div>
+        </div>
+        
+        <div class="node-structure">
+            <h2>节点DOM结构</h2>
+            <textarea id="dom-input" rows="20" cols="100" placeholder="粘贴节点的HTML结构到这里..."></textarea>
+            <br>
+            <button onclick="analyzeDOM()">分析DOM结构</button>
+            <br>
+            <div id="analysis-result"></div>
+        </div>
+        
+        <div class="node-structure">
+            <h2>预期的输出端口选择器</h2>
+            <div class="code">
+// 1. 查找节点容器
+const nodeElement = document.getElementById(`node-${node_id}`);
+
+// 2. 查找右侧面板
+const rightPanel = nodeElement.querySelector('.right');
+
+// 3. 查找所有.item元素
+const allItems = rightPanel.querySelectorAll('.item');
+
+// 4. 筛选输出端口
+const outputPorts = Array.from(allItems).filter(item => {
+    // 检查是否包含output文本
+    return item.textContent.toLowerCase().includes('output');
+});
+
+// 5. 显示/隐藏端口
+outputPorts.forEach((port, index) => {
+    if (index < outputcount) {
+        port.style.display = 'flex';
+    } else {
+        port.style.display = 'none';
+    }
+});
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function analyzeDOM() {
+            const domInput = document.getElementById('dom-input');
+            const analysisResult = document.getElementById('analysis-result');
+            const html = domInput.value;
+            
+            if (!html) {
+                analysisResult.innerHTML = '<div class="code">请先粘贴节点的HTML结构</div>';
+                return;
+            }
+            
+            // 创建临时DOM元素来分析
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            
+            // 分析结果
+            let result = '<div class="code">';
+            
+            // 查找基本结构
+            result += '=== 节点基本结构 ===\n';
+            const nodeId = tempDiv.id;
+            result += `节点ID: ${nodeId}\n`;
+            
+            // 查找.right面板
+            const rightPanel = tempDiv.querySelector('.right');
+            if (rightPanel) {
+                result += '找到.right面板\n';
+                
+                // 查找所有.item元素
+                const items = rightPanel.querySelectorAll('.item');
+                result += `找到 ${items.length} 个.item元素\n\n`;
+                
+                // 分析每个.item元素
+                result += '=== .item元素分析 ===\n';
+                items.forEach((item, index) => {
+                    result += `\nItem ${index}:\n`;
+                    result += `  文本内容: ${item.textContent.trim()}\n`;
+                    result += `  类名: ${item.className}\n`;
+                    result += `  子元素数量: ${item.children.length}\n`;
+                    
+                    // 检查是否包含output相关内容
+                    if (item.textContent.toLowerCase().includes('output')) {
+                        result += `  <span class="highlight">✓ 这是输出端口</span>\n`;
+                    }
+                    
+                    // 检查子元素
+                    const outputElement = item.querySelector('.output');
+                    if (outputElement) {
+                        result += `  包含.output元素: ${outputElement.outerHTML}\n`;
+                    }
+                    
+                    const widgetElement = item.querySelector('.widget');
+                    if (widgetElement) {
+                        result += `  包含.widget元素: ${widgetElement.outerHTML}\n`;
+                    }
+                });
+                
+                // 查找所有.output元素
+                const outputs = tempDiv.querySelectorAll('.output');
+                result += `\n=== 直接查找.output元素 ===\n`;
+                result += `找到 ${outputs.length} 个.output元素\n`;
+                outputs.forEach((output, index) => {
+                    result += `\nOutput ${index}:\n`;
+                    result += `  父元素: ${output.parentElement.className}\n`;
+                    result += `  完整路径: ${getElementPath(output)}\n`;
+                });
+            } else {
+                result += '未找到.right面板\n';
+            }
+            
+            result += '</div>';
+            analysisResult.innerHTML = result;
+        }
+        
+        // 获取元素的完整路径
+        function getElementPath(element) {
+            let path = [];
+            let current = element;
+            
+            while (current) {
+                let selector = current.tagName.toLowerCase();
+                if (current.id) {
+                    selector += `#${current.id}`;
+                    path.unshift(selector);
+                    break;
+                }
+                if (current.className) {
+                    selector += `.${current.className.trim().replace(/\s+/g, '.')}`;
+                }
+                path.unshift(selector);
+                current = current.parentElement;
+            }
+            
+            return path.join(' > ');
+        }
+    </script>
+</body>
+</html>

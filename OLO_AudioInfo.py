@@ -15,24 +15,27 @@ class OLO_AudioInfo(object):
             "required": {
                 "audio": ("AUDIO",),
             },
+            "hidden": {
+                "unique_id": "UNIQUE_ID",
+            }
         }
 
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("audio_info_string",)
+    RETURN_TYPES = ()
     FUNCTION = "execute"
     CATEGORY = MY_CATEGORY
     OUTPUT_NODE = True
     DESCRIPTION = "显示音频的详细信息，包括采样率、长度、通道数等"
 
-    def execute(self, audio):
+    def execute(self, audio, unique_id=None):
         """
         执行音频信息提取操作
 
         参数:
             audio: 音频对象
+            unique_id: 节点唯一ID，用于在节点上显示文本信息
 
         返回:
-            音频信息字符串
+            UI信息，包含音频详细信息
         """
         # 提取音频信息
         sample_rate = audio["sample_rate"]
@@ -71,12 +74,26 @@ class OLO_AudioInfo(object):
         # 直接打印音频信息到控制台，这样用户可以在日志中看到
         print(audio_info_text)
 
-        # 返回UI输出和结果，模仿ComfyUI-Easy-Use节点的实现方式
+        # 发送文本到节点显示，参考Get Image Size节点的实现
+        try:
+            from server import PromptServer
+            if unique_id:
+                PromptServer.instance.send_progress_text(
+                    audio_info_text, unique_id)
+        except ImportError:
+            print(
+                "[OLO_AudioInfo] Could not import PromptServer, skipping node text display")
+        except AttributeError:
+            print(
+                "[OLO_AudioInfo] Could not access PromptServer.instance, skipping node text display")
+        except Exception as e:
+            print(f"[OLO_AudioInfo] Error sending text to node: {e}")
+
+        # 对于OUTPUT_NODE，返回UI信息
         return {
             "ui": {
-                "text": audio_info_text
-            },
-            "result": (audio_info_text,)
+                "text": (audio_info_text,)
+            }
         }
 
 

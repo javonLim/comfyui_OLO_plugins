@@ -141,16 +141,8 @@ app.registerExtension({
                 }
             };
 
-            // 监听outputcount变化，自动更新输出端口
-            const onExecuted = nodeType.prototype.onExecuted;
-            nodeType.prototype.onExecuted = function() {
-                console.log("[OLO_Code] onExecuted called");
-                if (onExecuted) {
-                    onExecuted.apply(this, arguments);
-                }
-                this._updateInputPorts();
-                this._updateOutputPorts(); // 同时更新输出端口
-            };
+            // 移除onExecuted中的自动更新，避免执行代码后连接断开
+            // 只通过Update按钮手动更新端口
         }
     }
 });

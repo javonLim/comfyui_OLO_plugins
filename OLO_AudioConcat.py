@@ -11,7 +11,8 @@ except ImportError:
 class OLO_AudioConcat(object):
     @classmethod
     def INPUT_TYPES(cls):
-        return {
+        # 定义基础输入参数
+        base_inputs = {
             "required": {
                 "inputcount": ("INT", {"default": 2, "min": 2, "max": 1000, "step": 1}),
                 "start_spacer": ("FLOAT",
@@ -28,6 +29,10 @@ class OLO_AudioConcat(object):
                 "mute_1": ("BOOLEAN", {"default": False, "label": "Mute Audio 1"}),
             }
         }
+        
+        # 注意：动态端口将在前端JavaScript中处理
+        # 这里只定义默认的端口，其他端口将通过JavaScript动态添加
+        return base_inputs
 
     RETURN_TYPES = ("AUDIO",)
     RETURN_NAMES = ("concatenated_audio",)

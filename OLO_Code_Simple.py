@@ -1,4 +1,4 @@
-"""OLO代码执行节点，用于执行自定义Python代码"""
+"""OLO代码执行节点简化修复版本，用于执行自定义Python代码"""
 from pathlib import Path
 import sys
 import io
@@ -12,11 +12,23 @@ import traceback
 ROOT = Path(__file__).resolve().parent
 
 
-class OLO_Code:
-    """OLO代码执行节点，用于执行自定义Python代码"""
+class AlwaysEqualProxy(str):
+    """始终相等的代理类，用于通配符类型"""
+
+    def __eq__(self, other: Any) -> bool:
+        """重载相等比较，始终返回True"""
+        return True
+
+    def __ne__(self, other: Any) -> bool:
+        """重载不等比较，始终返回False"""
+        return False
+
+
+class OLO_Code_Simple:
+    """OLO代码执行节点简化修复版本，用于执行自定义Python代码"""
 
     # 节点元数据
-    NODE_NAME = "OLO_Code"
+    NODE_NAME = "OLO_Code_Simple"
     NODE_CATEGORY = "OLO/Utility"
 
     # 内置函数和模块白名单
@@ -92,7 +104,7 @@ class OLO_Code:
             "optional": {
                 "code_input": (
                     "STRING", {
-                        "default": "output = 'hello, world!\noutput = inputs.get('in0', 'default_input')",
+                        "default": "output = 'hello, world!'\noutput = inputs.get('in0', 'default_input')",
                         "multiline": True,
                         "dynamicPrompts": False,
                         "tooltip": "要执行的Python代码，使用output变量(单输出)或outputs字典(多输出)进行输出"
@@ -125,15 +137,12 @@ class OLO_Code:
 
     CATEGORY = NODE_CATEGORY
 
-    # 定义固定数量的输出端口，实际可见端口由JavaScript动态管理
-    # 最多支持8个输出端口，与UI配置保持一致
-    RETURN_TYPES = ("*", "*", "*", "*",
-                    "*", "*", "*", "*")
-    RETURN_NAMES = ("output_0", "output_1", "output_2", "output_3",
-                    "output_4", "output_5", "output_6", "output_7")
+    # 使用固定数量的输出类型，与RB_Code完全一致
+    RETURN_TYPES = ("IMAGE", "IMAGE", "INT", "STRING",)  # 使用具体的类型而不是通配符
+    RETURN_NAMES = ("output_0", "output_1", "output_2", "output_3",)
     FUNCTION = "execute"
     DESCRIPTION = """
-    OLO代码执行节点，用于执行自定义Python代码
+    OLO代码执行节点简化修复版本，用于执行自定义Python代码
 
     特性：
     - 支持直接输入代码或从文件加载
@@ -141,10 +150,11 @@ class OLO_Code:
     - 支持超时机制，防止无限循环
     - 提供丰富的内置函数和模块
     - 支持1-100个动态输入端口
-    - 支持1-8个动态输出端口
+    - 支持4个固定输出端口
     - 提供详细的错误信息
     - 支持代码缓存，提高执行效率
     - 支持单输出和多输出两种模式
+    - 使用固定输出类型，避免连接问题
 
     输出方式：
     1. 单输出模式：output = 'value'  # 结果会输出到output_0
@@ -193,7 +203,7 @@ class OLO_Code:
         return hash_value
 
     def __init__(self):
-        """初始化OLO_Code节点"""
+        """初始化OLO_Code_Simple节点"""
         self.code_cache = {}  # 代码缓存
         self.last_execution_time = 0.0  # 上次执行时间
 
@@ -212,11 +222,11 @@ class OLO_Code:
             **kwargs: 其他参数
 
         Returns:
-            Tuple[Any, ...]: 输出结果
+            Tuple[Any, ...]: 输出结果，固定4个输出
         """
         # 初始化输出
         output = None
-        outputs = {i: None for i in range(8)}  # 支持最多8个输出
+        outputs = {i: None for i in range(4)}  # 固定4个输出
 
         # 处理输入，与RB_Code保持完全一致的处理方式
         inputs = kwargs.copy()
@@ -263,7 +273,7 @@ class OLO_Code:
 
             # 获取执行结果
             output = env.get("output", None)
-            outputs = env.get("outputs", {i: None for i in range(8)})
+            outputs = env.get("outputs", {i: None for i in range(4)})
 
             # 处理单输出模式：如果使用了output变量且outputs[0]为空，则将output值赋给outputs[0]
             if output is not None and outputs.get(0) is None:
@@ -275,17 +285,42 @@ class OLO_Code:
                 traceback.format_exc()
             raise RuntimeError(error_msg)
 
-        # 使用直接访问方式，与RB_Code保持一致
-        # 确保所有输出都有值，如果没有设置则使用None而不是占位对象
-        # ComfyUI可以正确处理None值，问题可能在于其他地方
+        # 确保输出类型匹配RETURN_TYPES
+        # output_0: IMAGE
+        # output_1: IMAGE
+        # output_2: INT
+        # output_3: STRING
+        
+        # 获取输出值，如果没有设置则使用默认值
         result = []
-        for i in range(outputcount):
-            if i in outputs and outputs[i] is not None:
-                result.append(outputs[i])
-            else:
-                # 对于未设置的输出，使用None而不是占位对象
-                # 这样与ComfyUI的标准行为保持一致
-                result.append(None)
+        
+        # output_0: IMAGE
+        img0 = outputs.get(0)
+        if img0 is None:
+            # 创建一个默认的1x1黑色图像
+            import torch
+            img0 = torch.zeros((1, 1, 1, 3), dtype=torch.float32)
+        result.append(img0)
+        
+        # output_1: IMAGE
+        img1 = outputs.get(1)
+        if img1 is None:
+            # 创建一个默认的1x1黑色图像
+            import torch
+            img1 = torch.zeros((1, 1, 1, 3), dtype=torch.float32)
+        result.append(img1)
+        
+        # output_2: INT
+        int2 = outputs.get(2)
+        if int2 is None:
+            int2 = 0
+        result.append(int2)
+        
+        # output_3: STRING
+        str3 = outputs.get(3)
+        if str3 is None:
+            str3 = ""
+        result.append(str3)
 
         return tuple(result)
 
@@ -325,7 +360,7 @@ class OLO_Code:
                     break
 
             if found_file is None:
-                raise RuntimeError(f"[OLO_Code] file not found: {file}")
+                raise RuntimeError(f"[OLO_Code_Simple] file not found: {file}")
 
             try:
                 with open(str(found_file), 'r', encoding='utf-8') as f:
@@ -334,7 +369,7 @@ class OLO_Code:
                 # 更新缓存
                 self.code_cache[cache_key] = code_input
             except Exception as e:
-                raise RuntimeError(f"[OLO_Code] error loading code file: {e}")
+                raise RuntimeError(f"[OLO_Code_Simple] error loading code file: {e}")
         return code_input
 
     def _safe_print(self, *args: Any, **kwargs: Any) -> None:
@@ -349,8 +384,8 @@ class OLO_Code:
 
 
 NODE_CLASS_MAPPINGS = {
-    OLO_Code.NODE_NAME: OLO_Code
+    OLO_Code_Simple.NODE_NAME: OLO_Code_Simple
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
-    OLO_Code.NODE_NAME: "OLO_Code"
+    OLO_Code_Simple.NODE_NAME: "OLO_Code_Simple"
 }
